@@ -1,7 +1,19 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>TicTacToe</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>TicTacToe</h1>
 
-Welcome to your new app.
+
+
+<p>Enter Room Code!</p>
+<input @bind_Value = _roomCode><input/>
+<button type="submit">Join Room!</button>
+
+<button>Create Room!</button>
+
+<p>Room Code: @_roomCode</p>
+
+@code {
+    private string _roomCode = "";
+}

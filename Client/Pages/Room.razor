@@ -1,0 +1,29 @@
+﻿@page "/room/{roomCode}"
+<h3>Room</h3>
+
+<p>@roomCode</p>
+
+<button href="/game/@roomCode/">Start Game!</button>
+<button>Add Bot!</button>
+<button>Leave Room!</button>
+
+<div>
+    @foreach(var player in players)
+    {
+        <div>
+            <p>@player.Key</p>
+            <p>@player.Value</p>
+        </div>
+    }
+</div>
+
+@code {
+   [Parameter] 
+    public string roomCode { get; set; } = "1";
+    private Dictionary<string, int> players = new Dictionary<string, int>
+    {
+        { "Player1", 0 },
+        { "Player2", 0 }
+    };
+   
+}

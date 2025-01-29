@@ -125,7 +125,7 @@ def recieve_move():
     board = request.json['board']
     board = np.array(board)
     move = ai_move(board)
-    return move.tolist()
+    return move
 
 
 
