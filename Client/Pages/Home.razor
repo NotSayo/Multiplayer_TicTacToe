@@ -1,7 +1,119 @@
 ﻿@page "/"
+@using Microsoft.AspNetCore.SignalR.Client
+@attribute [StreamRendering]
+@inject NavigationManager Nav
+@inject HubController Controller
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<InputText @bind-Value="@NewName"></InputText>
+<button @onclick="@(async () => await SetNewName())">Set New Name</button>
 
-Welcome to your new app.
+<h1>@Message</h1>
+<h3>Name: @Name</h3>
+
+<button @onclick="@( async() =>
+                  {
+                      await _hubConnection.InvokeAsync("CreateRoom");
+                  })">Create Room </button>
+<div>@GameCode</div>
+<InputText @bind-Value="@GameCode"></InputText>
+<button @onclick="@(async () => await JoinRoom(GameCode))">Join Room</button>
+
+
+@code {
+    public string Message { get; set; } = "";
+    private HubConnection _hubConnection;
+    public string Name { get; set; } = "";
+    public string NewName { get; set; } = "";
+    public string GameCode { get; set; } = "";
+
+    public event Func<string, Task>? RoomCreated;
+    public event Func<string, Task>? JoinedRoom;
+    public event Func<int, int, Task>? ReceiveMove;
+    public event Func<string, Task>? PlayerJoined;
+    public event Func<string, Task>? PlayerLeft;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _hubConnection = Controller.Connection;
+
+        await RegisterMethods();
+        await _hubConnection.InvokeAsync("Status");
+        RoomCreated = async roomCode =>
+        {
+            Nav.NavigateTo($"/Room/{roomCode}");
+        };
+        JoinedRoom = async roomCode =>
+        {
+            Nav.NavigateTo($"/Room/{roomCode}");
+        };
+    }
+
+    public async Task RegisterMethods()
+    {
+        _hubConnection.On<string, string>("GetStatus", async (msg, name) =>
+        {
+            Message = msg;
+            Name = name;
+            await InvokeAsync(StateHasChanged);
+        });
+        _hubConnection.On<string>("NameSet", async (name) =>
+        {
+            Name = name;
+            await InvokeAsync(StateHasChanged);
+
+        });
+
+        _hubConnection.On<string>("RoomCreated", async roomCode =>
+        {
+            if (RoomCreated != null) await RoomCreated.Invoke(roomCode);
+        });
+
+        _hubConnection.On<string>("JoinedRoom", async roomCode =>
+        {
+            if (JoinedRoom != null) await JoinedRoom.Invoke(roomCode);
+        });
+
+        _hubConnection.On<int, int>("ReceiveMove", async (x, y) =>
+        {
+            if (ReceiveMove != null) await ReceiveMove.Invoke(x, y);
+        });
+
+        _hubConnection.On<string>("PlayerJoined", async player =>
+        {
+            if (PlayerJoined != null) await PlayerJoined.Invoke(player);
+        });
+
+        _hubConnection.On<string>("PlayerLeft", async player =>
+        {
+            if (PlayerLeft != null) await PlayerLeft.Invoke(player);
+        });
+    }
+
+    public async Task CreateRoom()
+    {
+        if (_hubConnection != null)
+        {
+            await _hubConnection.InvokeAsync("CreateRoom");
+        }
+    }
+
+    public async Task JoinRoom(string roomCode)
+    {
+        if (_hubConnection != null)
+        {
+            Console.WriteLine("test1");
+            Console.WriteLine("RoomCode:");
+            Console.WriteLine(roomCode);
+            await InvokeAsync(StateHasChanged);
+            await _hubConnection.SendAsync("JoinRoom", roomCode);
+        }
+    }
+
+    private async Task SetNewName()
+    {
+        _hubConnection.InvokeAsync("SetName", NewName);
+    }
+
+}

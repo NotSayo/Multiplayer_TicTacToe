@@ -1,0 +1,72 @@
+﻿@page "/Room/{roomCode}"
+@using Microsoft.AspNetCore.SignalR.Client
+@inject HubController controller;
+@inject NavigationManager Nav;
+
+<h3>Room</h3>
+<p>Room Code: @roomCode</p>
+
+<h3>Room State:</h3>
+<p>@RoomState</p>
+
+@if (RoomState != "Ready")
+{
+    <button disabled>Start</button>
+}
+else
+{
+    <button @onclick="@(() => StartGame())">Start</button>
+}
+
+<div>
+    <h2>Players:</h2>
+    @foreach (var player in Players)
+    {
+        <p>@player</p>
+    }
+</div>
+
+@code {
+    [Parameter] public required string roomCode { get; set; }
+    [Parameter] public required HubConnection _hubConnection { get; set; }
+    public string RoomState { get; set; } = "";
+
+    public List<string> Players { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _hubConnection = controller.Connection;
+        await RegisterMethods();
+        await _hubConnection.SendAsync("GetRoomInfo", roomCode);
+    }
+
+    public Task RegisterMethods()
+    {
+        _hubConnection.On<List<string>>("ReceivePlayers", async (players) =>
+        {
+            Players = players;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        _hubConnection.On<bool>("ValidEntry", (valid) =>
+        {
+            if (!valid)
+                Nav.NavigateTo("/");
+        });
+
+        _hubConnection.On<string, List<string>, Dictionary<int, string>>("GetRoomInfo", async (state, players, scores) =>
+        {
+            RoomState = state;
+            Players = players;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        return Task.CompletedTask;
+    }
+
+    public async Task StartGame()
+    {
+        await _hubConnection.SendAsync("StartGame", roomCode);
+    }
+
+}
