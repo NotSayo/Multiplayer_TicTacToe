@@ -23,11 +23,13 @@
         new Cell(2,' '), new Cell(3,' '), new Cell(4,' '), new Cell(5,' '),
         new Cell(6,' '), new Cell(7,' '), new Cell(8,' ')};
     char currentPlayer = 'X';
-    //dummy
+    //dummy func
     private void OnClick(int index)
     {
-        
-        board[index] = new Cell(index, currentPlayer);
-        currentPlayer = currentPlayer == 'X' ? 'O' : 'X';
+        if(board[index].Value == ' ')
+        {
+            board[index].Value = currentPlayer;
+            currentPlayer = currentPlayer == 'X' ? 'O' : 'X';
+        }
     }
 }

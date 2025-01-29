@@ -1,9 +1,11 @@
-﻿@page "/room/{roomCode}"
+﻿@page "/room"
+@inject NavigationManager nav
+
 <h3>Room</h3>
 
 <p>@roomCode</p>
 
-<button href="/game/@roomCode/">Start Game!</button>
+<button @onclick="StartGame">Start Game!</button>
 <button>Add Bot!</button>
 <button>Leave Room!</button>
 
@@ -18,12 +20,40 @@
 </div>
 
 @code {
-   [Parameter] 
+    [Parameter]
     public string roomCode { get; set; } = "1";
     private Dictionary<string, int> players = new Dictionary<string, int>
     {
         { "Player1", 0 },
         { "Player2", 0 }
     };
-   
+
+    private HubConnection hubConnection;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(nav.ToAbsoluteUri($"/gamehub?roomCode={roomCode}"))
+            .Build();
+
+        hubConnection.On<string>("RedirectToGame", () =>
+        {
+            nav.NavigateTo($"/tictactoe/{roomCode}");
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    private async Task StartGame()
+    {
+        await hubConnection.InvokeAsync("StartGame", roomCode);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
 }
