@@ -2,6 +2,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.SignalR;
 using Server.Storages;
+using Shared;
 
 namespace Server.Hubs;
 
@@ -32,11 +33,9 @@ public class GameHub : Hub
         Rooms[roomCode] = new GameRoom()
         {
             RoomCode = roomCode,
-            RoomState = "Waiting",
-            Players = new List<string>(),
-            PlayerScores = new Dictionary<string, int>()
+            State = RoomState.Waiting,
         };
-        Rooms[roomCode].AddPlayer(UsernameStorage.Usernames[Context.ConnectionId]);
+        Rooms[roomCode].AddPlayer(UsernameStorage.Usernames[Context.ConnectionId], Context.ConnectionId);
         await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
         await Clients.Caller.SendAsync("RoomCreated", roomCode);
     }
@@ -50,7 +49,7 @@ public class GameHub : Hub
         }
         if (Rooms.ContainsKey(roomCode))
         {
-            Rooms[roomCode].AddPlayer(UsernameStorage.Usernames[Context.ConnectionId]);
+            Rooms[roomCode].AddPlayer(UsernameStorage.Usernames[Context.ConnectionId], Context.ConnectionId);
             await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
             await Clients.Caller.SendAsync("JoinedRoom", roomCode);
             await Clients.Group(roomCode).SendAsync("ReceivePlayers", Rooms[roomCode].Players);
@@ -71,17 +70,51 @@ public class GameHub : Hub
             return;
         }
         var userName = UsernameStorage.Usernames[Context.ConnectionId];
-        if(room.Players.FirstOrDefault(p => p == UsernameStorage.Usernames[Context.ConnectionId]) == null)
+        if(room.Players.FirstOrDefault(p => p.Username == UsernameStorage.Usernames[Context.ConnectionId]) == null)
         {
             await Clients.Caller.SendAsync("ValidEntry", false);
             return;
         }
-        await Clients.Caller.SendAsync("GetRoomInfo", room.RoomState, room.Players, room.PlayerScores);
+        await Clients.Caller.SendAsync("GetRoomInfo", room.State, room.Players, room.PlayerAssigns, room.Board, room.CurrentPlayer);
     }
 
-    public async Task SendMove(string roomCode, int x, int y)
+    public async Task StartGame(string gameCode)
     {
-        await Clients.Group(roomCode).SendAsync("ReceiveMove", Context.ConnectionId, x, y);
+        if (!Rooms.TryGetValue(gameCode, out var room))
+        {
+            await Clients.Caller.SendAsync("ValidEntry", false);
+            return;
+        }
+        var result = room.Start();
+        if(result)
+            await Clients.Group(gameCode).SendAsync("ReceiveStart");
+
+    }
+
+    public async Task SendMove(string roomCode, int field)
+    {
+        if (!Rooms.TryGetValue(roomCode, out var room))
+        {
+            await Clients.Caller.SendAsync("ValidEntry", false);
+            return;
+        }
+        var userName = UsernameStorage.Usernames[Context.ConnectionId];
+        var result = Rooms[roomCode].MakeMove(userName, field);
+
+        if (result.Result == ResultState.InvalidMove)
+            return;
+        if(result.Result == ResultState.Win)
+        {
+            await Clients.Group(roomCode).SendAsync("GameFinished", result.Winner);
+            return;
+        }
+        if(result.Result == ResultState.Draw)
+        {
+            await Clients.Group(roomCode).SendAsync("GameFinished", "Draw");
+            return;
+        }
+
+        await Clients.Group(roomCode).SendAsync("ReceiveUpdate", result);
     }
 
     public override async Task OnDisconnectedAsync(Exception exception)
