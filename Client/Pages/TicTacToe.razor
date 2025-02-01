@@ -1,0 +1,35 @@
+﻿@page "/TicTacToe/{roomCode}"
+<h3>TicTacToe</h3>
+
+
+<div class="TicTacToeCont">
+    @foreach(var cell in board)
+    {
+        if (cell.Value == ' ')
+        {
+            <button class="TicTacToeCell" @onclick="@(e => OnClick(cell.Id))"> </button>
+        }
+        else
+        {
+            <button class="TicTacToeCell"> @cell.Value</button>
+        }
+    }
+</div>
+@code {
+    [Parameter]
+    public string roomCode { get; set; }
+    
+    List<Cell> board = new List<Cell> {new Cell(0, ' ' ), new Cell(1,' '),
+        new Cell(2,' '), new Cell(3,' '), new Cell(4,' '), new Cell(5,' '),
+        new Cell(6,' '), new Cell(7,' '), new Cell(8,' ')};
+    char currentPlayer = 'X';
+    //dummy func
+    private void OnClick(int index)
+    {
+        if(board[index].Value == ' ')
+        {
+            board[index].Value = currentPlayer;
+            currentPlayer = currentPlayer == 'X' ? 'O' : 'X';
+        }
+    }
+}

@@ -112,3 +112,25 @@ code {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+.TicTacToeCell {
+    flex: 1 1 calc(33.33% - 10px); /* 3 columns */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 80px;
+    background-color: #007BFF;
+    color: white;
+    font-size: 20px;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    border-radius: 8px;
+}
+.TicTacToeCont{
+    display: flex;
+    flex-wrap: wrap;
+    width: 300px; /* Adjust as needed */
+    gap: 10px;
+    justify-content: center;
+    margin: 20px auto;
+}
