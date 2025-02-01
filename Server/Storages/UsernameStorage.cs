@@ -2,5 +2,5 @@
 
 public class UsernameStorage
 {
-    public static Dictionary<string, string> Usernames = new Dictionary<string, string>();
+    public static List<string> Usernames = new();
 }

@@ -1,52 +1,113 @@
 ﻿@page "/Room/{roomCode}"
+@using System.Reflection.Metadata
 @using Microsoft.AspNetCore.SignalR.Client
-@inject HubController controller;
+@using Shared
+@inject HubController Controller;
 @inject NavigationManager Nav;
 
-<h3>Room</h3>
-<p>Room Code: @roomCode</p>
-
-<h3>Room State:</h3>
-<p>@RoomState</p>
-
-@if (RoomState != "Ready")
-{
-    <button disabled>Start</button>
-}
-else
-{
-    <button @onclick="@(async () => await StartGame())">Start</button>
-}
-
-<div>
-    <h2>Players:</h2>
-    @foreach (var player in Players)
-    {
-        <p>@player</p>
+<style>
+    .cell {
+        height: 30px;
+        width: 30px;
+        border: 1px solid black;
     }
+</style>
+<h3>Room</h3>
+<div class="d-grid gap-2">
+    <div>
+        <p>Room Code: @roomCode</p>
+
+        <h3>Room State:</h3>
+        <p>@RoomState</p>
+        <p>PlayerName: @PlayerName</p>
+        <p>Winner: @Winner</p>
+
+        @if (RoomState != RoomState.Ready && RoomState != RoomState.Finished)
+        {
+            <button disabled>Start</button>
+        }
+        else
+        {
+            <button @onclick="@(async () => await StartGame())">Start</button>
+        }
+
+        <div>
+            <h2>Players:</h2>
+            @foreach (var player in Players)
+            {
+                <p>@player</p>
+            }
+        </div>
+    </div>
+    <div>
+        @if (RoomState == RoomState.Playing && CurrentPlayer == PlayerName)
+        {
+            <div class="board">
+                @for (int i = 0; i < 9; i++)
+                {
+                    int index = i;
+                    <button class="cell" @onclick="() => MakeMove(index)">
+                        @if (Board.Count > i)
+                        {
+                            @(Board[i] == FieldEntry.Empty ? "_" : Board[i].ToString())
+                        }
+                    </button>
+                    @if(index % 3 == 2)
+                    {
+                        <br />
+                    }
+                }
+            </div>
+        }
+        else
+        {
+            <div class="board">
+                @for (int i = 0; i < 9; i++)
+                {
+                    int index = i;
+                    <button class="cell" disabled="disabled" @onclick="() => MakeMove(index)">
+                        @if (Board.Count > i)
+                        {
+                            @(Board[i] == FieldEntry.Empty ? "_" : Board[i].ToString())
+                        }
+                    </button>
+                    @if(index % 3 == 2)
+                    {
+                        <br />
+                    }
+                }
+            </div>
+        }
+    </div>
+
 </div>
+
 
 @code {
     [Parameter] public required string roomCode { get; set; }
     [Parameter] public required HubConnection _hubConnection { get; set; }
-    public string RoomState { get; set; } = "";
+    [SupplyParameterFromQuery(Name = "name")]
+    [Parameter]
+    public required string PlayerName { get; set; } = "";
+    private RoomState RoomState { get; set; } = RoomState.Waiting;
+    private List<FieldEntry> Board { get; set; } = new();
+    private Dictionary<string, PlayerAssign> Assigns { get; set; } = new();
+    private string CurrentPlayer { get; set; } = "";
+
+    private string Winner = "";
 
     public List<string> Players { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
     {
-        _hubConnection = controller.Connection;
+        _hubConnection = Controller.Connection;
         await RegisterMethods();
-        await _hubConnection.SendAsync("GetRoomInfo", roomCode);
+        await _hubConnection.InvokeAsync("GetRoomInfo", roomCode, PlayerName);
+        await _hubConnection.SendAsync("UpdateGroup", roomCode, PlayerName);
     }
 
     public Task RegisterMethods()
     {
-        _hubConnection.On<List<string>>("ReceivePlayers", async (players) =>
-        {
-            Players = players;
-            await InvokeAsync(StateHasChanged);
-        });
 
         _hubConnection.On<bool>("ValidEntry", (valid) =>
         {
@@ -54,16 +115,19 @@ else
                 Nav.NavigateTo("/");
         });
 
-        _hubConnection.On<string, List<string>, Dictionary<int, string>>("GetRoomInfo", async (state, players, scores) =>
+        _hubConnection.On<RoomState, List<User>, Dictionary<string, PlayerAssign>, List<FieldEntry>, string>("GetRoomInfo", async (state, players, assigns, board, currentPlayer) =>
         {
-            // TODO update this withe backend
             RoomState = state;
-            Players = players;
+            Players = players.Select(p => p.Username).ToList();
+            Board = board;
+            Assigns = assigns;
+            CurrentPlayer = currentPlayer;
             await InvokeAsync(StateHasChanged);
         });
-        _hubConnection.On("ReceiveStart", () =>
+        _hubConnection.On<string>("GameFinished", async (winner) =>
         {
-            Nav.NavigateTo($"/game/{roomCode}");
+            Winner = winner;
+            await InvokeAsync(StateHasChanged);
         });
 
         return Task.CompletedTask;
@@ -72,6 +136,11 @@ else
     public async Task StartGame()
     {
         await _hubConnection.SendAsync("StartGame", roomCode);
+    }
+
+    public async Task MakeMove(int index)
+    {
+        await _hubConnection.SendAsync("SendMove", roomCode, PlayerName, index);
     }
 
 }

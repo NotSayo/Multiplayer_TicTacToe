@@ -23,6 +23,7 @@ public class GameRoom
 
     public void AddPlayer(string userName, string contextId)
     {
+        var oldUsername = userName;
         if(PlayersCount >= 2)
             return;
         if (Players.FirstOrDefault(p => p.Username == userName) is not null)
@@ -35,7 +36,8 @@ public class GameRoom
             ConnectionId = contextId,
             Username = userName
         });
-        UsernameStorage.Usernames[contextId] = userName;
+        UsernameStorage.Usernames.Remove(oldUsername);
+        UsernameStorage.Usernames.Add(userName);
         UpdateRoomState();
     }
 
@@ -43,7 +45,7 @@ public class GameRoom
     {
         try
         {
-            Players.Remove(Players.First(s => s.Username == userName && s.ConnectionId == contextId));
+            Players.Remove(Players.First(s => s.Username == userName));
         } catch(Exception ) {/**/}
         UpdateRoomState();
     }
@@ -60,7 +62,7 @@ public class GameRoom
 
     public bool Start()
     {
-        if (State != RoomState.Ready)
+        if (State != RoomState.Ready && State != RoomState.Finished)
             return false;
         State = RoomState.Playing;
         AssignPlayers();
@@ -83,7 +85,7 @@ public class GameRoom
 
     private MoveResult CheckWin()
     {
-        foreach (var assign in Enum.GetNames<PlayerAssign>())
+        foreach (var assign in new [] {"X", "O"})
         {
             // CheckHorizontal
             if((Board[0].ToString() == assign && Board[1].ToString() == assign && Board[2].ToString() == assign)
@@ -135,7 +137,7 @@ public class GameRoom
 
         if (Board.Count > 9)
             Board = Board.Take(9).ToList();
-        if (Board.Any(s => s == FieldEntry.Empty))
+        if (Board.All(s => s != FieldEntry.Empty))
         {
             EndGame();
             return new MoveResult()
@@ -160,6 +162,7 @@ public class GameRoom
 
     private void ResetBoard()
     {
+        Board = new List<FieldEntry>();
         for (int i = 0; i < 9; i++)
             Board.Add(FieldEntry.Empty);
     }
@@ -167,8 +170,8 @@ public class GameRoom
     private void AssignPlayers()
     {
         var xPlayer = Players[new Random().Next(0, 2)];
-        PlayerAssigns[xPlayer.ConnectionId] = PlayerAssign.X;
-        PlayerAssigns[Players.First(s => s != xPlayer).ConnectionId] = PlayerAssign.O;
+        PlayerAssigns[xPlayer.Username] = PlayerAssign.X;
+        PlayerAssigns[Players.First(s => s != xPlayer).Username] = PlayerAssign.O;
         CurrentPlayer = xPlayer.Username;
     }
 }

@@ -14,9 +14,8 @@
 
 <button @onclick="@( async() =>
                   {
-                      await _hubConnection.InvokeAsync("CreateRoom");
+                      await _hubConnection.InvokeAsync("CreateRoom", Name);
                   })">Create Room </button>
-<div>@GameCode</div>
 <InputText @bind-Value="@GameCode"></InputText>
 <button @onclick="@(async () => await JoinRoom(GameCode))">Join Room</button>
 
@@ -40,22 +39,22 @@
 
         await RegisterMethods();
         await _hubConnection.InvokeAsync("Status");
+        await _hubConnection.InvokeAsync("GetName");
         RoomCreated = async roomCode =>
         {
-            Nav.NavigateTo($"/Room/{roomCode}");
+            Nav.NavigateTo($"/Room/{roomCode}?name={Name}");
         };
         JoinedRoom = async roomCode =>
         {
-            Nav.NavigateTo($"/Room/{roomCode}");
+            Nav.NavigateTo($"/Room/{roomCode}?name={Name}");
         };
     }
 
     public async Task RegisterMethods()
     {
-        _hubConnection.On<string, string>("GetStatus", async (msg, name) =>
+        _hubConnection.On<string>("GetStatus", async (msg) =>
         {
             Message = msg;
-            Name = name;
             await InvokeAsync(StateHasChanged);
         });
         _hubConnection.On<string>("NameSet", async (name) =>
@@ -103,11 +102,8 @@
     {
         if (_hubConnection != null)
         {
-            Console.WriteLine("test1");
-            Console.WriteLine("RoomCode:");
-            Console.WriteLine(roomCode);
             await InvokeAsync(StateHasChanged);
-            await _hubConnection.SendAsync("JoinRoom", roomCode);
+            await _hubConnection.SendAsync("JoinRoom", roomCode, Name);
         }
     }
 
